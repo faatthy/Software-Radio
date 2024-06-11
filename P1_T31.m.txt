@@ -1,0 +1,327 @@
+close all;
+clear;
+clc;
+global num_bits;
+global num_realizations;
+
+% Define scaling factor A, number of bits, and number of realizations
+A = 4;
+num_bits = 100;
+num_realizations = 500;
+
+% Generate random binary data and transmission delays
+Data = randi([0, 1], num_realizations, num_bits + 1);
+td = randi([0, 6], num_realizations, 1);
+
+% Unipolar Encoding
+unipolar_Tx = Data * A; 
+unipolar_Tx_out = repelem(unipolar_Tx, 1, 7);  % Repeat each element 7 times
+unipolar_Tx_out_new = zeros(num_realizations, num_bits * 7);
+for i = 1:num_realizations
+    % Extract the relevant portion based on transmission delays
+    unipolar_Tx_out_new(i, :) = unipolar_Tx_out(i, td(i) + 1:td(i) + num_bits * 7);
+end
+
+% Polar NRZ Encoding
+polar_NRZ_Tx = ((2 * Data) - 1) * A; 
+polar_NRZ_Tx_out = repelem(polar_NRZ_Tx, 1, 7); % Repeat each element 7 times
+polar_NRZ_Tx_out_new = zeros(num_realizations, num_bits * 7);
+for i = 1:num_realizations
+    % Extract the relevant portion based on transmission delays
+    polar_NRZ_Tx_out_new(i, :) = polar_NRZ_Tx_out(i, td(i) + 1:td(i) + num_bits * 7);
+end
+
+% Polar RZ Encoding
+polar_RZ_Tx_out = repelem(polar_NRZ_Tx, 1, 4);  % Repeat each element 4 times
+% Add three zeros after every set of four elements
+polar_RZ_Tx_out_new = zeros(num_realizations, num_bits * 7 + 7);
+polar_RZ_Tx_out_final = zeros(num_realizations, num_bits * 7);
+for i = 1:num_realizations
+    n = 0;
+    for j = 1:4:num_bits*4 +4
+        % Insert 3 zeros after every set of four elements
+        polar_RZ_Tx_out_new(i, j + 3 * n:j + 3 + 3 * n) = polar_RZ_Tx_out(i, j:j + 3);
+        n = n + 1;
+    end
+end
+for i = 1:num_realizations
+    % Extract the relevant portion based on transmission delays
+    polar_RZ_Tx_out_final(i, :) = polar_RZ_Tx_out_new(i, td(i) + 1:td(i) + num_bits * 7);
+end
+figure
+for i=1:5
+subplot(5,1,i)
+stairs(unipolar_Tx_out(i,1:num_bits * 7))
+title(sprintf("Unipolar Output Realization %i",i));
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+end
+figure
+for i=1:5
+subplot(5,1,i)
+stairs(polar_RZ_Tx_out_new(i,1:num_bits * 7))
+title(sprintf("Polar RZ Output Realization %i",i));
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+end
+figure
+for i=1:5
+subplot(5,1,i)
+stairs(polar_NRZ_Tx_out(i,1:num_bits * 7))
+title(sprintf("Polar NRZ Output Realization %i",i));
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+end
+% Visualize encoded signals
+figure;
+subplot(3,1,1)
+stairs(unipolar_Tx_out_new(1,1:num_bits * 7))
+title("Unipolar Output");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+subplot(3,1,2)
+stairs(polar_NRZ_Tx_out_new(1,1:num_bits * 7))
+title("polar NRZ Output");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+subplot(3,1,3)
+stairs(polar_RZ_Tx_out_final(1,1:num_bits * 7))
+title("polar RZ Output");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+% Calculate The statistical mean for each line code
+stat_unipolar_mean = zeros(1, num_bits * 7);
+stat_polar_NRZ_mean = zeros(1, num_bits * 7);
+stat_polar_RZ_mean = zeros(1, num_bits * 7);
+for i = 1:num_bits * 7
+    stat_unipolar_mean(i) = sum(unipolar_Tx_out_new(:, i)) / num_realizations;
+    stat_polar_NRZ_mean(i) = sum(polar_NRZ_Tx_out_new(:, i)) / num_realizations;
+    stat_polar_RZ_mean(i) = sum(polar_RZ_Tx_out_final(:, i)) / num_realizations;
+end
+
+% Calculate mean across time for each realization
+time_unipolar_mean = zeros(1, num_realizations);
+time_polar_NRZ_mean = zeros(1, num_realizations);
+time_polar_RZ_mean = zeros(1, num_realizations);
+for i = 1:num_realizations
+    time_unipolar_mean(i) = sum(unipolar_Tx_out_new(i, :)) / (num_bits * 7);
+    time_polar_NRZ_mean(i) = sum(polar_NRZ_Tx_out_new(i, :)) / (num_bits * 7);
+    time_polar_RZ_mean(i) = sum(polar_RZ_Tx_out_final(i, :)) / (num_bits * 7);
+end
+
+% Plot the statistical mean signal
+figure;
+subplot(3,1,1)
+plot(stat_unipolar_mean)
+title("Unipolar Statistical mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+subplot(3,1,2)
+plot(stat_polar_NRZ_mean)
+title("Polar NRZ Statistical mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+subplot(3,1,3)
+plot(stat_polar_RZ_mean)
+title("Polar RZ Statistical mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_bits * 7 -6 6]);
+
+% Plot mean signal strength over time
+figure;
+subplot(3,1,1)
+plot(time_unipolar_mean)
+title("Unipolar Time mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+subplot(3,1,2)
+plot(time_polar_NRZ_mean)
+title("Polar NRZ Time mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+subplot(3,1,3)
+plot(time_polar_RZ_mean)
+title("Polar RZ Time mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+
+%plotting time and statistical mean overlapped
+figure;
+subplot(3,1,1)
+plot(time_unipolar_mean)
+hold on;
+plot(stat_unipolar_mean)
+legend ("Time mean","Statistical mean")
+title("Unipolar mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+subplot(3,1,2)
+plot(time_polar_NRZ_mean)
+hold on;
+plot(stat_polar_NRZ_mean)
+legend ("Time mean","Statistical mean")
+title("Polar NRZ mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+subplot(3,1,3)
+plot(time_polar_RZ_mean)
+hold on;
+plot(stat_polar_RZ_mean)
+legend ("Time mean","Statistical mean")
+title("Polar RZ mean");
+xlabel("Time in Samples");
+ylabel("Magnitude");
+axis([0 num_realizations -6 6]);
+
+% Calculate statistical autocorrelation 
+x_axis = [1:1:(num_bits * 7) * 2 - 1];
+unipolar_autocorr = calc_stat_autocorr(unipolar_Tx_out_new);
+polar_NRZ_autocorr = calc_stat_autocorr(polar_NRZ_Tx_out_new);
+polar_RZ_autocorr = calc_stat_autocorr(polar_RZ_Tx_out_final);
+
+% Calculate autocorrelation across time
+unipolar_time_autocorr = calc_time_autocorr(unipolar_Tx_out_new);
+polar_NRZ_time_autocorr = calc_time_autocorr(polar_NRZ_Tx_out_new);
+polar_RZ_time_autocorr = calc_time_autocorr(polar_RZ_Tx_out_final);
+
+% Plot statistical autocorrelation
+figure;
+subplot(3, 1, 1)
+plot(x_axis - num_bits * 7, unipolar_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Statistical autocorrelation unipolar');
+subplot(3, 1, 2)
+plot(x_axis - num_bits * 7, polar_NRZ_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Statistical autocorrelation polar NRZ');
+subplot(3, 1, 3)
+plot(x_axis - num_bits * 7, polar_RZ_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Statistical autocorrelation polar RZ');
+
+% Plot time-domain autocorrelation
+figure;
+subplot(3, 1, 1)
+plot(x_axis - num_bits * 7, unipolar_time_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Unipolar time autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+subplot(3, 1, 2)
+plot(x_axis - num_bits * 7, polar_NRZ_time_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Polar NRZ time autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+subplot(3, 1, 3)
+plot(x_axis - num_bits * 7, polar_RZ_time_autocorr(x_axis))
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('Polar RZ time autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+
+% Plot time-domain and statistical autocorrelation overlapped 
+figure;
+subplot(3,1,1)
+plot(x_axis - num_bits * 7,unipolar_time_autocorr(x_axis))
+hold on;
+plot(x_axis - num_bits * 7,unipolar_autocorr(x_axis))
+legend ("Time Autocorrelation","Statistical Autocorrelation")
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('unipolar autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+subplot(3,1,2)
+plot(x_axis - num_bits * 7,polar_NRZ_time_autocorr(x_axis))
+hold on;
+plot(x_axis - num_bits * 7,polar_NRZ_autocorr(x_axis))
+legend ("Time Autocorrelation","Statistical Autocorrelation")
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('polar NRZ  autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+subplot(3,1,3)
+plot(x_axis - num_bits * 7,polar_RZ_time_autocorr(x_axis))
+hold on;
+plot(x_axis - num_bits * 7,polar_RZ_autocorr(x_axis))
+legend ("Time Autocorrelation","Statistical Autocorrelation")
+axis([-num_bits * 7/2 num_bits * 7/2 -3 18])
+title('polar RZ autocorrelation');
+xlabel('tau');
+ylabel('time autocorrelation');
+
+% Calculate Power Spectral Density
+fs = 100; % Sampling frequency (Hz)
+
+fft_polar_NRZ = abs(fft(polar_NRZ_autocorr));
+fft_unipolar = abs(fft(unipolar_autocorr));
+fft_polar_RZ = abs(fft(polar_RZ_autocorr));
+
+N = length(polar_NRZ_autocorr); % Number of samples
+f = (-N/2:N/2-1) * fs/N; % Frequency axis
+
+% Plot Power Spectral Density
+figure;
+subplot(4, 1, 1);
+plot(f, fftshift(fft_unipolar)/fs);
+title('FFT of unipolar autocorrelation');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+subplot(4, 1, 2);
+plot(f, fftshift(fft_unipolar)/fs);
+title('FFT of unipolar autocorrelation Zoomed In');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+ylim([0, 1]);
+subplot(4, 1, 3);
+plot(f, fftshift(fft_polar_NRZ)/fs);
+title('FFT of polar NRZ autocorrelation');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+subplot(4, 1, 4);
+plot(f, fftshift(fft_polar_RZ)/fs);
+title('FFT of polar RZ autocorrelation');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
+% Function to calculate statistical autocorrelation
+% Rx(𝜏) = mean(X[n]*X[i])  where 𝜏 = n - i
+function result = calc_stat_autocorr(x)
+    global num_realizations;
+    global num_bits;
+    stat_autocorr = zeros(1, num_bits * 7);
+    for i = 1:num_bits * 7
+        stat_autocorr(i) = (1/num_realizations) * sum(x(:, 1) .* x(:, i));
+    end
+    result = [fliplr(stat_autocorr(2:end)) stat_autocorr];
+end
+
+% Function to calculate time-domain autocorrelation
+% mean across time for each 𝜏 value
+function result = calc_time_autocorr(x)
+    global num_bits;
+    time_autocorr = zeros(1, num_bits * 7);
+    for tau = 0:num_bits * 7 - 1
+        sum_time_autocorr = 0;
+        for counter = 1:(num_bits * 7 - tau)
+            sum_time_autocorr = sum_time_autocorr + (x(1, counter) * x(1, (counter + tau))); 
+        end
+        % Divide by the number of samples
+        time_autocorr((tau+1)) = (1/(num_bits * 7 - tau)) * sum_time_autocorr;
+    end
+    result = [fliplr(time_autocorr(2:end)) time_autocorr];
+end
